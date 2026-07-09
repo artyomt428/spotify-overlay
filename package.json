@@ -4,10 +4,10 @@
   "description": "Always-on-top Spotify Now Playing overlay",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
-    "start": "npm run build && electron .",
-    "watch": "tsc -w",
-    "type": "module"
+  "build": "tsc",
+  "start": "npm run build && electron .",
+  "watch": "tsc -w",
+  "dist": "npm run build && electron-builder"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
@@ -15,9 +15,26 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.9.3"
   },
+  "build": {
+  "appId": "com.artyomt428.spotify-overlay",
+  "productName": "Spotify Overlay",
+  "files": [
+    "dist/**/*",
+    "renderer/**/*",
+    "package.json"
+  ],
+  "directories": {
+    "output": "release"
+  },
+  "win": {
+    "target": "portable"
+  }
+},
   "keywords": [],
   "author": "",
   "license": "ISC"
+  
 }
