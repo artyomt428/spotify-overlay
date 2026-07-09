@@ -16,6 +16,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Debug - check properties file
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files in root:"
+          ls -la
+          echo "--- sonar-project.properties content ---"
+          cat sonar-project.properties || echo "FILE NOT FOUND"
+
       - name: Analyze with SonarCloud
         uses: SonarSource/sonarcloud-github-action@4006f663ecaf1f8093e8e4abb9227f6041f52216
         env:
