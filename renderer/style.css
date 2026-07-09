@@ -1,0 +1,221 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  user-select: none;
+}
+
+html, body {
+  background: transparent;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  -webkit-app-region: drag; /* позволяет таскать окно мышкой */
+}
+
+#login-screen, #now-playing-screen {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 24, 24, 0.85);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+}
+
+#login-btn {
+  -webkit-app-region: no-drag;
+  background: #1db954;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#now-playing-screen {
+  display: none;
+  padding: 10px;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+#shuffle-btn.active {
+  color: #1ed760;
+}
+
+#album-art {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #333;
+}
+
+#info {
+  flex: 1;
+  min-width: 0;
+  color: white;
+}
+
+#track-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+#track-meta {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+#track-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#artist-name {
+  font-size: 11px;
+  color: #b3b3b3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+#save-track {
+  -webkit-app-region: no-drag;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+#save-track:hover,
+#save-track:focus-visible {
+  background: rgba(29, 185, 84, 0.18);
+  color: #1ed760;
+  outline: none;
+}
+
+#save-track:active {
+  transform: scale(0.94);
+}
+
+#progress-track {
+  margin-top: 6px;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #1db954;
+  transition: width 0.3s linear;
+}
+
+#volume-row {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  height: 16px;
+}
+
+#volume-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  color: #b3b3b3;
+  font-size: 10px;
+  line-height: 1;
+}
+
+#soundlev-bar {
+  --volume-percent: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 14px;
+  min-width: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+#soundlev-bar:focus {
+  outline: none;
+}
+
+#soundlev-bar::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #1db954 0%,
+    #1db954 var(--volume-percent),
+    rgba(255, 255, 255, 0.22) var(--volume-percent),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+}
+
+#soundlev-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 2px solid #181818;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+#soundlev-bar:hover::-webkit-slider-thumb,
+#soundlev-bar:focus::-webkit-slider-thumb {
+  transform: scale(1.12);
+  background: #1ed760;
+}
+
+#controls {
+  -webkit-app-region: no-drag;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+#controls button {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px;
+}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spotify Overlay</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="login-screen">
+      <button id="login-btn">Войти через Spotify</button>
+    </div>
+
+    <div id="now-playing-screen">
+      <img id="album-art" src="" alt="" />
+      <div id="info">
+        <div id="track-header">
+          <div id="track-meta">
+            <div id="track-name">—</div>
+            <div id="artist-name">—</div>
+          </div>
+          <button id="save-track" aria-label="Save track" title="Save track">♡</button>
+        </div>
+        <div id="progress-track">
+          <div id="progress-bar"></div>
+        </div>
+        <div id="volume-row">
+          <span id="volume-icon">♪</span>
+          <input id="soundlev-bar" type="range" min="0" max="100" value="50" aria-label="Volume" />
+        </div>
+      </div>
+      <div id="controls">
+        <button id="prev-btn">⏮</button>
+        <button id="play-pause-btn">▶</button>
+        <button id="next-btn">⏭</button>
+        <button id ="shuffle-btn">⇄</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../dist/renderer/renderer.js"></script>
+</body>
+</html>
