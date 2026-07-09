@@ -4,12 +4,6 @@
 
 ## Настройка
 
-1. Зарегистрируй приложение на https://developer.spotify.com/dashboard
-2. В настройках приложения добавь Redirect URI: `http://127.0.0.1:8888/callback`
-3. Скопируй `.env.example` в `.env` и вставь свой `SPOTIFY_CLIENT_ID`
-4. `npm install`
-5. `npm start` — соберёт TS и запустит Electron
-
 ## Что уже работает
 
 - OAuth 2.0 Authorization Code + PKCE (без client secret)
