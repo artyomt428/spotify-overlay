@@ -5,6 +5,10 @@ import * as path from "path";
 import { app, shell } from "electron";
 import { TokenSet, NowPlaying } from "./types";
 
+const envPath = app.isPackaged
+  ? path.join(path.dirname(app.getPath('exe')), '.env')
+  : path.join(__dirname, '..', '.env');
+
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID ?? "";
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI ?? "http://127.0.0.1:8888/callback";
 const SCOPES = [

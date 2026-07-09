@@ -7,6 +7,7 @@
   "build": "tsc",
   "start": "npm run build && electron .",
   "watch": "tsc -w",
+  
   "dist": "npm run build && electron-builder"
   },
   "dependencies": {
@@ -25,6 +26,9 @@
     "dist/**/*",
     "renderer/**/*",
     "package.json"
+  ],
+    "extraResources": [
+    { "from": ".env", "to": "../.env" }
   ],
   "directories": {
     "output": "release"
