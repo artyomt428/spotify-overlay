@@ -47,7 +47,7 @@ app.on("window-all-closed", () => {
 });
 
 
-ipcMain.handle("spotify:login", async () => spotify.login());
+ipcMain.handle("spotify:login", async () => spotify.Login());
 ipcMain.handle("spotify:isLoggedIn", () => spotify.isLoggedIn());
 ipcMain.handle("spotify:getNowPlaying", () => spotify.getNowPlaying());
 ipcMain.handle("spotify:play", () => spotify.play());
