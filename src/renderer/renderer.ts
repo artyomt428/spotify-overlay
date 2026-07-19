@@ -19,7 +19,10 @@ const currentPlaylist = document.getElementById("current-playlist") as HTMLInput
 let pollTimer: number | null = null;
 let lastKnownIsPlaying = false;
 let lastKnownSaved = false;
+let currentTrackId: string | null = null;
 let playbackActionInFlight = false;
+let saveActionInFlight = false;
+let refreshInFlight = false;
 
 let playlistExpanded = false;
 
@@ -47,9 +50,9 @@ function updateVolumeSlider(value: number): void {
 
 async function refreshVolumeLevel(): Promise<void> {
   try {
-    const { volumepercent } = await window.spotifyOverlay.getVolume();
-    volumelevel.value = String(volumepercent);
-    updateVolumeSlider(volumepercent);
+    const { volumePercent } = await window.spotifyOverlay.getVolume();
+    volumelevel.value = String(volumePercent);
+    updateVolumeSlider(volumePercent);
   } catch (error) {
     console.error("refreshVolumeLevel error:", error);
   }
@@ -66,9 +69,13 @@ function setSavedState(saved: boolean): void {
 }
 
 async function refreshNowPlaying(): Promise<void> {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+
   try {
     const track = await window.spotifyOverlay.getNowPlaying();
     if (!track) {
+      currentTrackId = null;
       trackNameEl.textContent = "Ничего не играет";
       artistNameEl.textContent = "";
       albumArtEl.style.visibility = "hidden";
@@ -78,24 +85,28 @@ async function refreshNowPlaying(): Promise<void> {
       return;
     }
 
-    songSaved.disabled = false;
+    currentTrackId = track.trackId;
+    songSaved.disabled = saveActionInFlight;
     albumArtEl.style.visibility = "visible";
     albumArtEl.src = track.albumArtUrl ?? "";
     trackNameEl.textContent = track.trackName;
     artistNameEl.textContent = track.artistName;
     lastKnownIsPlaying = track.isPlaying;
-    setSavedState(track.savedsong);
+    setSavedState(track.saved);
     playPauseBtn.textContent = track.isPlaying ? "⏸" : "▶";
     const pct = track.durationMs > 0 ? (track.progressMs / track.durationMs) * 100 : 0;
     progressBarEl.style.width = `${pct}%`;
   } catch (e) {
     console.error("refreshNowPlaying error:", e);
+  } finally {
+    refreshInFlight = false;
   }
 }
 
 function startPolling(): void {
   if (pollTimer !== null) return;
   void refreshNowPlaying();
+  void refreshVolumeLevel();
   pollTimer = window.setInterval(refreshNowPlaying, POLL_INTERVAL_MS);
 }
 
@@ -167,22 +178,31 @@ playPauseBtn.addEventListener("click", () => {
 });
 
 songSaved.addEventListener("click", () => {
-  if (playbackActionInFlight) return;
+  if (saveActionInFlight || currentTrackId === null) return;
 
+  const targetTrackId = currentTrackId;
   const previousSaved = lastKnownSaved;
-  setSavedState(!previousSaved);
+  const desiredSaved = !previousSaved;
+
+  saveActionInFlight = true;
+  setSavedState(desiredSaved);
   songSaved.disabled = true;
 
-  void window.spotifyOverlay.SaveTrack()
+  void window.spotifyOverlay.setTrackSaved(targetTrackId, desiredSaved)
     .then(({ saved }) => {
-      setSavedState(saved);
+      if (currentTrackId === targetTrackId) {
+        setSavedState(saved);
+      }
     })
     .catch((error) => {
       console.error("Save track error:", error);
-      setSavedState(previousSaved);
+      if (currentTrackId === targetTrackId) {
+        setSavedState(previousSaved);
+      }
     })
     .finally(() => {
-      songSaved.disabled = false;
+      saveActionInFlight = false;
+      songSaved.disabled = currentTrackId === null;
     });
 });
 
@@ -204,7 +224,7 @@ shuffleBtn.addEventListener("click", async () => {
   shuffleBtn.disabled = true;
 
   try {
-    const { enabled }  = await window.spotifyOverlay.shuffle();
+    const { enabled } = await window.spotifyOverlay.toggleShuffle();
   
     shuffleBtn.classList.toggle("active", enabled);
     shuffleBtn.setAttribute("aria-pressed", String(enabled));

@@ -1,25 +1,72 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { SpotifyOverlayAPI } from "./types";
+import type {
+  SpotifyOverlayAPI,
+  SpotifyRendererApi,
+  SpotifyServiceApi,
+} from "./types";
+
+/*
+ * A sandboxed Electron preload cannot import local runtime modules. Keep this
+ * small protocol table self-contained; `satisfies` keeps it synchronized with
+ * SpotifyServiceApi at compile time.
+ */
+const IPC_CHANNELS = {
+  spotifyInvoke: "spotify:invoke",
+  appQuit: "app:quit",
+  setPlaylistExpanded: "window:setPlaylistExpanded",
+  playlistVisibility: "window:playlistVisibility",
+} as const;
+
+const SPOTIFY_METHODS = {
+  login: true,
+  isLoggedIn: true,
+  getNowPlaying: true,
+  play: true,
+  pause: true,
+  next: true,
+  previous: true,
+  toggleShuffle: true,
+  getVolume: true,
+  setVolume: true,
+  setTrackSaved: true,
+} as const satisfies Record<keyof SpotifyServiceApi, true>;
+
+type SpotifyMethod = keyof typeof SPOTIFY_METHODS;
+
+function createSpotifyRendererApi(): SpotifyRendererApi {
+  const methods = Object.keys(SPOTIFY_METHODS) as SpotifyMethod[];
+  const entries = methods.map((method) => [
+    method,
+    (...args: unknown[]) => ipcRenderer.invoke(
+      IPC_CHANNELS.spotifyInvoke,
+      method,
+      args,
+    ),
+  ] as const);
+
+  return Object.fromEntries(entries) as SpotifyRendererApi;
+}
 
 const api: SpotifyOverlayAPI = {
-  login: () => ipcRenderer.invoke("spotify:login"),
-  isLoggedIn: () => ipcRenderer.invoke("spotify:isLoggedIn"),
-  getNowPlaying: () => ipcRenderer.invoke("spotify:getNowPlaying"),
-  play: () => ipcRenderer.invoke("spotify:play"),
-  pause: () => ipcRenderer.invoke("spotify:pause"),
-  next: () => ipcRenderer.invoke("spotify:next"),
-  previous: () => ipcRenderer.invoke("spotify:previous"),
-  quit: () => ipcRenderer.send("app:quit"),
-  shuffle: () => ipcRenderer.invoke("spotify:shuffle"),
-  getVolume: () => ipcRenderer.invoke("spotify:getVolume"),
-  setVolume: (volume: number) => ipcRenderer.invoke("spotify:setvolume", volume),
-  TrackSaved: () => ipcRenderer.invoke("spotify:TrackSaved"),
-  SaveTrack: () => ipcRenderer.invoke("spotify:savetrack"),
-  setPlaylistExpanded: (expanded: boolean) => ipcRenderer.send("window:setPlaylistExpanded", expanded),
-  onPlaylistVisibilityChanged: (callback: (visible: boolean) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => callback(visible);
-    ipcRenderer.on("window:playlistVisibility", listener);
-    return () => ipcRenderer.removeListener("window:playlistVisibility", listener);
+  ...createSpotifyRendererApi(),
+
+  quit: () => ipcRenderer.send(IPC_CHANNELS.appQuit),
+
+  setPlaylistExpanded: (expanded) => {
+    ipcRenderer.send(IPC_CHANNELS.setPlaylistExpanded, expanded);
+  },
+
+  onPlaylistVisibilityChanged: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      visible: boolean,
+    ) => callback(visible);
+
+    ipcRenderer.on(IPC_CHANNELS.playlistVisibility, listener);
+    return () => ipcRenderer.removeListener(
+      IPC_CHANNELS.playlistVisibility,
+      listener,
+    );
   },
 };
 
