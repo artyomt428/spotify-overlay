@@ -1,8 +1,7 @@
-import { TokenSet } from "../../types";
+import type { TokenSet } from "../../types";
 
 export interface TokenStore {
-
-    loadTokens(): TokenSet | null;
-    saveTokens(nextTokens: TokenSet): void;
+  loadTokens(): TokenSet | null;
+  saveTokens(nextTokens: TokenSet): void;
 }
 

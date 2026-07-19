@@ -1,8 +1,13 @@
 export interface TokenSet {
   accessToken: string;
   refreshToken: string;
-  expiresAt: number; // unix ms
+  expiresAt: number;
   scope?: string;
+}
+
+export interface LoginResult {
+  ok: boolean;
+  error?: string;
 }
 
 export interface NowPlaying {
@@ -13,26 +18,41 @@ export interface NowPlaying {
   albumArtUrl: string | null;
   progressMs: number;
   durationMs: number;
-  savedsong: boolean;
+  saved: boolean;
 }
+
 export interface VolumeState {
-  volume: number | null;
-  supported: boolean;
+  volumePercent: number;
 }
-export interface SpotifyOverlayAPI {
-  login: () => Promise<{ ok: boolean; error?: string }>;
-  isLoggedIn: () => Promise<boolean>;
-  getNowPlaying: () => Promise<NowPlaying | null>;
-  play: () => Promise<void>;
-  pause: () => Promise<void>;
-  next: () => Promise<void>;
-  previous: () => Promise<void>;
-  shuffle: () => Promise<{enabled: boolean}>;
-  getVolume: () => Promise<{volumepercent: number}>;
-  setVolume: (Volume: number) => Promise<void>;
-  quit: () => void;
-  TrackSaved: () => Promise<{saved: boolean}>;
-  SaveTrack: () => Promise<{saved: boolean}>;
-  setPlaylistExpanded: (expanded: boolean) => void;
-  onPlaylistVisibilityChanged: (callback: (visible: boolean) => void) => () => void;
+
+/** Methods implemented in the Electron main process. */
+export interface SpotifyServiceApi {
+  login(): Promise<LoginResult>;
+  isLoggedIn(): boolean;
+  getNowPlaying(): Promise<NowPlaying | null>;
+  play(): Promise<void>;
+  pause(): Promise<void>;
+  next(): Promise<void>;
+  previous(): Promise<void>;
+  toggleShuffle(): Promise<{ enabled: boolean }>;
+  getVolume(): Promise<VolumeState>;
+  setVolume(volumePercent: number): Promise<void>;
+  setTrackSaved(trackId: string, saved: boolean): Promise<{ saved: boolean }>;
 }
+
+type AsyncRendererMethod<T> = T extends (...args: infer Args) => infer Result
+  ? (...args: Args) => Promise<Awaited<Result>>
+  : never;
+
+/** The same methods as SpotifyServiceApi, transported asynchronously over IPC. */
+export type SpotifyRendererApi = {
+  [Method in keyof SpotifyServiceApi]: AsyncRendererMethod<SpotifyServiceApi[Method]>;
+};
+
+export interface OverlayWindowApi {
+  quit(): void;
+  setPlaylistExpanded(expanded: boolean): void;
+  onPlaylistVisibilityChanged(callback: (visible: boolean) => void): () => void;
+}
+
+export type SpotifyOverlayAPI = SpotifyRendererApi & OverlayWindowApi;

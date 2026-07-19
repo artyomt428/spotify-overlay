@@ -1,12 +1,16 @@
 import "dotenv/config";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import * as path from "path";
-import * as spotify from "./spotify";
+import { IPC_CHANNELS } from "./ipc-contract";
+import { spotifyService } from "./spotify";
+import { registerSpotifyIpc } from "./spotify-ipc";
 
 let overlayWindow: BrowserWindow | null = null;
 let playlistWindow: BrowserWindow | null = null;
 const COLLAPSED_HEIGHT = 120;
 const PLAYLIST_PANEL_HEIGHT = 112;
+
+registerSpotifyIpc(spotifyService);
 
 function createOverlayWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -50,33 +54,19 @@ app.on("window-all-closed", () => {
 });
 
 
-ipcMain.handle("spotify:login", async () => spotify.Login());
-ipcMain.handle("spotify:isLoggedIn", () => spotify.isLoggedIn());
-ipcMain.handle("spotify:getNowPlaying", () => spotify.getNowPlaying());
-ipcMain.handle("spotify:play", () => spotify.play());
-ipcMain.handle("spotify:pause", () => spotify.pause());
-ipcMain.handle("spotify:next", () => spotify.next());
-ipcMain.handle("spotify:previous", () => spotify.previous());
-ipcMain.handle("spotify:shuffle", () => spotify.shuffle());
-ipcMain.handle("spotify:getVolume", () => spotify.GetVolume());
-ipcMain.handle("spotify:setvolume", (_event, volume:number) =>
-  spotify.setVolume(volume),
-);
-ipcMain.handle("spotify:TrackSaved", () => spotify.TrackSaved());
-ipcMain.handle("spotify:savetrack", () => spotify.saveSong());
-ipcMain.on("window:setPlaylistExpanded", (_event, expanded: boolean) => {
+ipcMain.on(IPC_CHANNELS.setPlaylistExpanded, (_event, expanded: boolean) => {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
 
   if (!expanded) {
     playlistWindow?.close();
     playlistWindow = null;
-    overlayWindow.webContents.send("window:playlistVisibility", false);
+    overlayWindow.webContents.send(IPC_CHANNELS.playlistVisibility, false);
     return;
   }
 
   if (playlistWindow && !playlistWindow.isDestroyed()) {
     playlistWindow.showInactive();
-    overlayWindow.webContents.send("window:playlistVisibility", true);
+    overlayWindow.webContents.send(IPC_CHANNELS.playlistVisibility, true);
     return;
   }
 
@@ -105,12 +95,12 @@ ipcMain.on("window:setPlaylistExpanded", (_event, expanded: boolean) => {
   playlistWindow.loadFile(path.join(__dirname, "..", "renderer", "playlist.html"));
   playlistWindow.once("ready-to-show", () => {
     playlistWindow?.showInactive();
-    overlayWindow?.webContents.send("window:playlistVisibility", true);
+    overlayWindow?.webContents.send(IPC_CHANNELS.playlistVisibility, true);
   });
   playlistWindow.once("closed", () => {
     playlistWindow = null;
-    overlayWindow?.webContents.send("window:playlistVisibility", false);
+    overlayWindow?.webContents.send(IPC_CHANNELS.playlistVisibility, false);
   });
 });
 
-ipcMain.on("app:quit", () => app.quit());
+ipcMain.on(IPC_CHANNELS.appQuit, () => app.quit());
