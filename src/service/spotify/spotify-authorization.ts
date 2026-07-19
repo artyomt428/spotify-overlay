@@ -99,7 +99,7 @@ export class SpotifyAuthService {
 
             refreshToken:
                 json.refresh_token
-                ?? tokens,
+                ?? tokens.refreshToken,
             
             expiresAt:
                 Date.now() + json.expires_in * 1000,

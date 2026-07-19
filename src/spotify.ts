@@ -25,10 +25,8 @@ const tokens = new FileTokenStorage(tokenstorage, SCOPES);
 
 const AuthService = new SpotifyAuthService(tokens, CLIENT_ID, REDIRECT_URI, SCOPES) 
 
-export async function Login() {
-
-  AuthService.login();
-
+export async function Login(): Promise<{ ok: boolean; error?: string }> {
+  return AuthService.login();
 }
 
 export function isLoggedIn(): boolean {

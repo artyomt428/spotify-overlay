@@ -15,6 +15,12 @@ const api: SpotifyOverlayAPI = {
   setVolume: (volume: number) => ipcRenderer.invoke("spotify:setvolume", volume),
   TrackSaved: () => ipcRenderer.invoke("spotify:TrackSaved"),
   SaveTrack: () => ipcRenderer.invoke("spotify:savetrack"),
+  setPlaylistExpanded: (expanded: boolean) => ipcRenderer.send("window:setPlaylistExpanded", expanded),
+  onPlaylistVisibilityChanged: (callback: (visible: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => callback(visible);
+    ipcRenderer.on("window:playlistVisibility", listener);
+    return () => ipcRenderer.removeListener("window:playlistVisibility", listener);
+  },
 };
 
 contextBridge.exposeInMainWorld("spotifyOverlay", api);
