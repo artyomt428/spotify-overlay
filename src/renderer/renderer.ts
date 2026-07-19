@@ -13,11 +13,33 @@ const shuffleBtn = document.getElementById("shuffle-btn") as HTMLButtonElement;
 const progressBarEl = document.getElementById("progress-bar") as HTMLDivElement;
 const volumelevel = document.getElementById("soundlev-bar") as HTMLInputElement;
 const songSaved = document.getElementById("save-track") as HTMLButtonElement;
+const playlistBtn = document.getElementById("playlist-btn") as HTMLButtonElement;
+const currentPlaylist = document.getElementById("current-playlist") as HTMLInputElement;
 
 let pollTimer: number | null = null;
 let lastKnownIsPlaying = false;
 let lastKnownSaved = false;
 let playbackActionInFlight = false;
+
+let playlistExpanded = false;
+
+function setPlaylistPopover(open: boolean): void {
+  playlistExpanded = open;
+  playlistBtn.setAttribute("aria-expanded", String(open));
+  playlistBtn.classList.toggle("active", open);
+  window.spotifyOverlay.setPlaylistExpanded(open);
+}
+
+playlistBtn.setAttribute("aria-expanded", "false");
+playlistBtn.addEventListener("click", () => setPlaylistPopover(!playlistExpanded));
+window.spotifyOverlay.onPlaylistVisibilityChanged((visible) => {
+  playlistExpanded = visible;
+  playlistBtn.setAttribute("aria-expanded", String(visible));
+  playlistBtn.classList.toggle("active", visible);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setPlaylistPopover(false);
+});
 
 function updateVolumeSlider(value: number): void {
   volumelevel.style.setProperty("--volume-percent", `${value}%`);
@@ -62,8 +84,8 @@ async function refreshNowPlaying(): Promise<void> {
     trackNameEl.textContent = track.trackName;
     artistNameEl.textContent = track.artistName;
     lastKnownIsPlaying = track.isPlaying;
-    playPauseBtn.textContent = track.isPlaying ? "⏸" : "▶";
     setSavedState(track.savedsong);
+    playPauseBtn.textContent = track.isPlaying ? "⏸" : "▶";
     const pct = track.durationMs > 0 ? (track.progressMs / track.durationMs) * 100 : 0;
     progressBarEl.style.width = `${pct}%`;
   } catch (e) {

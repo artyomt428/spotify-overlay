@@ -33,4 +33,6 @@ export interface SpotifyOverlayAPI {
   quit: () => void;
   TrackSaved: () => Promise<{saved: boolean}>;
   SaveTrack: () => Promise<{saved: boolean}>;
+  setPlaylistExpanded: (expanded: boolean) => void;
+  onPlaylistVisibilityChanged: (callback: (visible: boolean) => void) => () => void;
 }

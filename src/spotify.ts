@@ -1,13 +1,15 @@
-import * as crypto from "crypto";
-import * as fs from "fs";
-import * as http from "http";
-import * as path from "path";
-import { app, shell } from "electron";
-import { TokenSet, NowPlaying } from "./types";
+import * as path from "node:path";
+import { app } from "electron";
+import {  NowPlaying } from "./types";
+import {  SpotifyAuthService } from "./service/spotify/spotify-authorization"
+import { FileTokenStorage } from "./service/spotify/token-file-storage"
+
 
 const envPath = app.isPackaged
   ? path.join(path.dirname(app.getPath('exe')), '.env')
   : path.join(__dirname, '..', '.env');
+
+const tokenstorage = path.join(app.getPath("userData"), "spotify-tokens.json");
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID ?? "";
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI ?? "http://127.0.0.1:8888/callback";
@@ -19,196 +21,22 @@ const SCOPES = [
   "user-library-modify",
 ].join(" ");
 
-let tokens: TokenSet | null = null;
+const tokens = new FileTokenStorage(tokenstorage, SCOPES);
 
-function getTokenPath(): string {
-  return path.join(app.getPath("userData"), "spotify-tokens.json");
-}
+const AuthService = new SpotifyAuthService(tokens, CLIENT_ID, REDIRECT_URI, SCOPES) 
 
-function loadTokens(): TokenSet | null {
-  if (tokens) return tokens;
-
-  try {
-    tokens = JSON.parse(fs.readFileSync(getTokenPath(), "utf8")) as TokenSet;
-    return tokens;
-  } catch {
-    return null;
-  }
-}
-
-function saveTokens(nextTokens: TokenSet): void {
-  tokens = nextTokens;
-  fs.writeFileSync(getTokenPath(), JSON.stringify(nextTokens), "utf8");
-}
-
-function hasRequiredScopes(tokenSet: TokenSet): boolean {
-  if (!tokenSet.scope) return false;
-  const grantedScopes = new Set((tokenSet.scope ?? "").split(" ").filter(Boolean));
-  return SCOPES.split(" ").every((scope) => grantedScopes.has(scope));
-}
-
-function base64url(input: Buffer): string {
-  return input
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-function generatePkcePair(): { verifier: string; challenge: string } {
-  const verifier = base64url(crypto.randomBytes(32));
-  const challenge = base64url(crypto.createHash("sha256").update(verifier).digest());
-  return { verifier, challenge };
-}
-
-export async function login(): Promise<{ ok: boolean; error?: string }> {
-  if (!CLIENT_ID) {
-    return { ok: false, error: "SPOTIFY_CLIENT_ID не задан в .env" };
-  }
-
-  const { verifier, challenge } = generatePkcePair();
-  const state = base64url(crypto.randomBytes(16));
-
-  const authUrl = new URL("https://accounts.spotify.com/authorize");
-  authUrl.searchParams.set("client_id", CLIENT_ID);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  authUrl.searchParams.set("code_challenge", challenge);
-  authUrl.searchParams.set("scope", SCOPES);
-  authUrl.searchParams.set("state", state);
-
-  const redirectUrl = new URL(REDIRECT_URI);
-  const port = Number(redirectUrl.port || 8888);
-
-  const code = await new Promise<string>((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      if (!req.url) return;
-      const reqUrl = new URL(req.url, REDIRECT_URI);
-      if (reqUrl.pathname !== redirectUrl.pathname) {
-        res.writeHead(404).end();
-        return;
-      }
-
-      const returnedState = reqUrl.searchParams.get("state");
-      const returnedCode = reqUrl.searchParams.get("code");
-      const err = reqUrl.searchParams.get("error");
-
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (err || !returnedCode || returnedState !== state) {
-        res.end("<h2>Ошибка авторизации. Можно закрыть окно.</h2>");
-        clearTimeout(timeout);
-        server.close();
-        reject(new Error(err ?? "state mismatch"));
-        return;
-      }
-
-      res.end("<h2>Готово! Можно закрыть окно и вернуться в приложение.</h2>");
-      clearTimeout(timeout);
-      server.close();
-      resolve(returnedCode);
-    });
-
-    const timeout = setTimeout(() => {
-      server.close();
-      reject(new Error("Timeout excepted"));
-    }, 120_000);
-
-    server.on("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-
-    server.listen(port, "127.0.0.1", async () => {
-      try {
-        await shell.openExternal(authUrl.toString());
-      } catch (error) {
-        clearTimeout(timeout);
-        server.close();
-        reject(error);
-      }
-    });
-  });
-
-  
-
-  try {
-    await exchangeCodeForToken(code, verifier);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
-
-  // помогаем eslint не жаловаться на shell.openExternal без await выше по коду
-  async function exchangeCodeForToken(code: string, verifier: string): Promise<void> {
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: REDIRECT_URI,
-      client_id: CLIENT_ID,
-      code_verifier: verifier,
-    });
-
-    const res = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-
-    if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
-    const json = await res.json();
-    saveTokens({
-      accessToken: json.access_token,
-      refreshToken: json.refresh_token,
-      expiresAt: Date.now() + json.expires_in * 1000,
-      scope: json.scope,
-    });
-  }
-}
-
-async function refreshAccessToken(): Promise<void> {
-  loadTokens();
-  if (!tokens?.refreshToken) throw new Error("Нет refresh token, нужен повторный login()");
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: tokens.refreshToken,
-    client_id: CLIENT_ID,
-  });
-
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-
-  if (!res.ok) throw new Error(`Token refresh failed: ${res.status}`);
-  const json = await res.json();
-  saveTokens({
-    accessToken: json.access_token,
-    refreshToken: json.refresh_token ?? tokens.refreshToken,
-    expiresAt: Date.now() + json.expires_in * 1000,
-    scope: json.scope ?? tokens.scope,
-  });
-}
-
-async function ensureValidToken(): Promise<string> {
-  loadTokens();
-  if (!tokens) throw new Error("Не авторизован");
-  if (!hasRequiredScopes(tokens)) throw new Error("Spotify token is missing required scopes, login again");
-  if (Date.now() > tokens.expiresAt - 30_000) {
-    await refreshAccessToken();
-  }
-  return tokens!.accessToken;
+export async function Login(): Promise<{ ok: boolean; error?: string }> {
+  return AuthService.login();
 }
 
 export function isLoggedIn(): boolean {
-  const tokenSet = loadTokens();
-  return tokenSet !== null && hasRequiredScopes(tokenSet);
+  const tokenSet = tokens.loadTokens();
+  return tokenSet !== null && AuthService.hasRequiredScopes(tokenSet);
 }
 
+
 export async function getNowPlaying(): Promise<NowPlaying | null> {
-  const accessToken = await ensureValidToken();
+  const accessToken = await AuthService.ensureValidToken();
 
   const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -242,7 +70,7 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
 }
 
 async function playerAction(method: "PUT" | "POST", path: string): Promise<void> {
-  const accessToken = await ensureValidToken();
+  const accessToken = await AuthService.ensureValidToken();;
   const res = await fetch(`https://api.spotify.com/v1/me/player/${path}`, {
     method,
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -264,7 +92,7 @@ async function playerAction(method: "PUT" | "POST", path: string): Promise<void>
 
 export async function GetVolume(): Promise<{volumepercent: number}> {
 
-  const accessToken = await ensureValidToken();
+  const accessToken = await AuthService.ensureValidToken();;
   const stateResponse = await fetch(
    "https://api.spotify.com/v1/me/player",
    {
@@ -290,7 +118,7 @@ export async function GetVolume(): Promise<{volumepercent: number}> {
 
 export async function TrackSaved(trackId?: string): Promise<{saved: boolean}> {
   
-  const access_token = await ensureValidToken();
+  const access_token = await AuthService.ensureValidToken();;
   const currentTrackId = trackId ?? (await getNowPlaying())?.trackId;
 
   if (!currentTrackId) {
@@ -324,7 +152,7 @@ export async function TrackSaved(trackId?: string): Promise<{saved: boolean}> {
 
 export async function saveSong(): Promise<{saved: boolean}> {
 
-  const access_token = await ensureValidToken();
+  const access_token = await AuthService.ensureValidToken();
   const trackinfo = await getNowPlaying();
 
   if (!trackinfo) {
@@ -353,7 +181,7 @@ export async function saveSong(): Promise<{saved: boolean}> {
 
 export async function setVolume(volume:number): Promise<void> {
   
-  const access_token = await ensureValidToken();
+  const access_token = await AuthService.ensureValidToken();
 
   const safeVolume = Math.max(0, Math.min(100, Math.round(volume)));
 
@@ -376,7 +204,7 @@ export async function setVolume(volume:number): Promise<void> {
 }
 
 export async function shuffle(): Promise<{ enabled: boolean }> {
-  const accessToken = await ensureValidToken();
+  const accessToken = await AuthService.ensureValidToken();
   const stateResponse = await fetch(
     "https://api.spotify.com/v1/me/player",
     {
